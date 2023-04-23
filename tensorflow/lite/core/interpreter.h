@@ -41,6 +41,7 @@ limitations under the License.
 
 #include "tensorflow/lite/allocation.h"
 #include "tensorflow/lite/core/api/error_reporter.h"
+#include "tensorflow/lite/core/async/async_signature_runner.h"
 #include "tensorflow/lite/core/api/profiler.h"
 #include "tensorflow/lite/core/c/common.h"  // IWYU pragma: export
 #include "tensorflow/lite/core/subgraph.h"
@@ -345,6 +346,14 @@ class Interpreter {
   SignatureRunner* GetSignatureRunner(const char* signature_key);
 
   /// \warning Experimental interface, subject to change. \n
+  /// \brief Returns a pointer to the AsyncSignatureRunner instance to run the
+  /// part of the graph identified by a SignatureDef. The nullptr is returned if
+  /// the given signature key is not valid.
+  /// The async delegate should be applied before calling this function.
+  async::AsyncSignatureRunner* GetAsyncSignatureRunner(
+      const char* signature_key);
+
+  /// \warning Experimental interface, subject to change. \n
   /// \brief Return the subgraph index that corresponds to a SignatureDef,
   /// defined by 'signature_key'.
   /// If invalid name passed, -1 will be returned.
@@ -623,6 +632,18 @@ class Interpreter {
   ///    For example, set an OpenGL texture as the output of inference, while
   ///    the node which produces output is an OpenGL delegate node.
   TfLiteStatus SetBufferHandle(int tensor_index,
+                               TfLiteBufferHandle buffer_handle,
+                               TfLiteDelegate* delegate);
+
+  /// \warning This is an experimental API and subject to change. \n
+  /// \brief Set the delegate buffer handle to the given tensor.
+  // It can be called in the following cases:
+  // 1. Set the buffer handle to a tensor that is used by other computing
+  // hardware such as EdgeTpu. For example, EdgeTpu delegate imports a tensor's
+  // memory into EdgeTpu's virtual address and returns a buffer handle. Then
+  // EdgeTpu delegate calls this API to associate the tensor with the buffer
+  // handle. Example bug b/277217867.
+  TfLiteStatus SetBufferHandle(TfLiteTensor* tensor,
                                TfLiteBufferHandle buffer_handle,
                                TfLiteDelegate* delegate);
 
@@ -945,6 +966,12 @@ class Interpreter {
   // A SignatureRunner is basically a wrapper of the Subgraph corresponding to
   // its SignatureDef.
   std::map<std::string, SignatureRunner> signature_runner_map_;
+
+  // Map of signature key to its corresponding AsyncSignatureRunner object.
+  // An AsyncSignatureRunner is basically a wrapper of the AsyncSubgraph
+  // corresponding to its SignatureDef.
+  std::map<std::string, async::AsyncSignatureRunner>
+      async_signature_runner_map_;
 
   // Model metadata stored as mapping of name (key) to buffer (value).
   // Data is mapped from the Metadata in TFLite flatbuffer model.

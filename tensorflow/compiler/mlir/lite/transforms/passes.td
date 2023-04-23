@@ -191,6 +191,10 @@ def OptimizePass : Pass<"tfl-optimize", "mlir::func::FuncOp"> {
       Option<"enable_canonicalization_", "enable-canonicalization",
              "bool", "false",
              "Enable canonicalization during optimization pass.">,
+      Option<"disable_fuse_mul_and_fc_", "disable-fuse-mul-and-fc",
+             "bool", "false",
+             "Disable folding mul and fully connected ops during optimization pass.">,
+
   ];
 }
 
@@ -335,7 +339,7 @@ def PrepareTFPass : Pass<"tfl-prepare-tf", "mlir::func::FuncOp"> {
     "mhlo::MhloDialect"
   ];
   let options = [
-      Option<"unfold_batch_matmul_", "emit-quant-adaptor-ops",
+      Option<"unfold_batch_matmul_", "unfold_batchmatmul",
              "bool", "true",
              "Unfold BatchMatMul into individual MatMul ops.">,
       Option<"allow_bf16_and_f16_type_legalization_", "allow-bf16-and-f16-type-legalization",

@@ -18,7 +18,6 @@ cc_library(
     deps = [
         "//tensorflow/lite:framework_stable",
         "//tensorflow/lite:minimal_logging",
-        "//tensorflow/lite/c:common",
         "//tensorflow/lite/core/c:common",
         "//tensorflow/lite/delegates/nnapi:nnapi_delegate",
     ],
@@ -69,6 +68,7 @@ cc_test(
     data = [
         "//tensorflow/lite:testdata/add.bin",
     ],
+    tags = ["no_oss"],  #TODO(b/276295784): Re-enable when fixed.
     deps = [
         ":nnapi_delegate_compatibility_checker",
         "//tensorflow/core/platform:resource_loader",

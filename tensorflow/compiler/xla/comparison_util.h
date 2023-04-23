@@ -234,8 +234,8 @@ inline std::ostream& operator<<(std::ostream& os, const Comparison& cmp) {
 
 std::string ComparisonDirectionToString(Comparison::Direction direction);
 std::string ComparisonTypeToString(Comparison::Type type);
-std::string ComparisonPrimitiveTypeToString(PrimitiveType type);
-std::string ComparisonOrderToString(Comparison::Order order);
+absl::string_view ComparisonPrimitiveTypeToString(PrimitiveType type);
+absl::string_view ComparisonOrderToString(Comparison::Order order);
 
 StatusOr<Comparison::Direction> StringToComparisonDirection(
     absl::string_view direction);
@@ -247,6 +247,18 @@ StatusOr<Comparison::Order> StringToComparisonOrder(absl::string_view order);
 template <typename KeyFn>
 auto LessThanByKey(KeyFn&& key_fn) {
   return [=](const auto& a, const auto& b) { return key_fn(a) < key_fn(b); };
+}
+
+// Two comparisons are equivalent iff they have the same direction, precision,
+// and ordering.
+inline bool operator==(const Comparison& a, const Comparison& b) {
+  return a.GetDirection() == b.GetDirection() &&
+         a.GetPrimitiveType() == b.GetPrimitiveType() &&
+         a.GetOrder() == b.GetOrder();
+}
+
+inline bool operator!=(const Comparison& a, const Comparison& b) {
+  return !(a == b);
 }
 
 }  // namespace xla

@@ -119,10 +119,11 @@ tsl::StatusOr<OwnedCudaGraph> CaptureCudaGraph(
 
   if (!captured.ok())
     return InternalError("failed to capture CUDA graph: %s",
-                         captured.error_message());
+                         captured.message());
 
   VLOG(5) << "Captured CUDA graph " << graph;
 
+#if CUDA_VERSION >= 12000
   // If verbose logging is enabled print captured CUDA graph debug information.
   if (VLOG_IS_ON(100)) {
     if (const char* path = getenv("XLA_CUDA_GRAPH_DEBUG_DIRECTORY"); path) {
@@ -153,6 +154,7 @@ tsl::StatusOr<OwnedCudaGraph> CaptureCudaGraph(
       }
     }
   }
+#endif  // CUDA_VERSION >= 12000
 
   return OwnedCudaGraph(graph);
 }

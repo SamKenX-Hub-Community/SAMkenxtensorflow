@@ -32,6 +32,10 @@ load(
     "//third_party/mkl:build_defs.bzl",
     "if_mkl_ml",
 )
+load(
+    "//third_party/mkl_dnn:build_defs.bzl",
+    "if_onednn_v3",
+)
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load(
     "//tensorflow:tensorflow.default.bzl",
@@ -41,6 +45,7 @@ load(
 load("@local_config_cuda//cuda:build_defs.bzl", "if_cuda")
 
 # copybara:uncomment_begin
+# load("//devtools/copybara/rules:copybara.bzl", "copybara_config_test")
 # load("//tools/build_defs/license:license.bzl", "license")
 # copybara:uncomment_end
 
@@ -96,7 +101,6 @@ PACKAGE_STATIC_DEPS = [
     "@llvm_openmp//:__subpackages__",
     "@llvm_terminfo//:__subpackages__",
     "@llvm_zlib//:__subpackages__",
-    "@lmdb//:__subpackages__",
     "@local_config_cuda//:__subpackages__",
     "@local_config_git//:__subpackages__",
     "@local_config_nccl//:__subpackages__",
@@ -124,7 +128,7 @@ PACKAGE_STATIC_DEPS = [
     "@flatbuffers//:__subpackages__",
     "@nccl_archive//:__subpackages__",
     "@triton//:__subpackages__",
-] + tsl_async_value_deps()
+] + tsl_async_value_deps() + if_onednn_v3(["@onednn_v3//:__subpackages__"])
 
 package(
     # copybara:uncomment default_applicable_licenses = [":license"],
@@ -135,6 +139,49 @@ package(
 # license(
 #     name = "license",
 #     package_name = "tensorflow",
+# )
+#
+# filegroup(
+#     name = "copybara_library",
+#     srcs = glob(
+#         [
+#             "*.bara.sky",
+#             "*.dic",
+#             "*.ftrcp",
+#         ],
+#         exclude = [
+#             "copy.bara.sky",
+#         ],
+#     ),
+#     visibility = ["//visibility:public"],
+# )
+#
+# filegroup(
+#     name = "copybara_config",
+#     srcs = ["copy.bara.sky"],
+#     data = [
+#         ":copybara_library",
+#         "//learning/brain/testing/copybara:all_bara_sky",
+#         "//third_party/tsl:copybara_library",
+#         "//third_party/xla:copybara_library",
+#     ],
+#     visibility = ["//visibility:public"],
+# )
+#
+# copybara_config_test(
+#     name = "copybara_config_test",
+#     config = "copy.bara.sky",
+#     tags = [
+#         "noasan",
+#         "nodfsan",
+#         "nogotsan",
+#         "nogpu",
+#         "nomsan",
+#         "nosan",
+#         "notsan",
+#         "noubsan",
+#     ],
+#     deps = [":copybara_config"],
 # )
 # copybara:uncomment_end
 
@@ -972,6 +1019,7 @@ package_group(
         "//learning/lib/ami/simple_ml/...",
         "//learning/pathways/...",
         "//learning/serving/contrib/tfrt/mlir/canonical_ops/...",
+        "//learning/serving/experimental/remote_predict/...",
         "//perftools/accelerators/xprof/integration_tests/...",
         "//smartass/brain/configure/...",
         "//tensorflow/...",
@@ -981,8 +1029,10 @@ package_group(
         "//third_party/cloud_tpu/inference_converter/...",
         "//third_party/py/cloud_ml_autoflow/...",
         "//third_party/py/envlogger/...",
+        "//third_party/py/gldm/...",
         "//third_party/py/keras/...",
         "//third_party/yggdrasil_decision_forests/...",
+        "//waymo/ml/cn/...",
     ],
 )
 
@@ -1262,6 +1312,7 @@ tf_cc_shared_library(
         "//tensorflow/c/eager:tfe_tensorhandle_internal",
         "//tensorflow/c/experimental/gradients",
         "//tensorflow/c/experimental/gradients/tape",
+        "//tensorflow/c/experimental/next_pluggable_device:c_api",
         "//tensorflow/c/experimental/ops",
         "//tensorflow/c:c_api_experimental",
         "//tensorflow/c:c_api_internal",
@@ -1305,6 +1356,7 @@ tf_cc_shared_library(
         "//tensorflow/core/data/service:server_lib",
         "//tensorflow/core/debug",
         "//tensorflow/core/distributed_runtime:server_lib",
+        "//tensorflow/core/framework:full_type_util",
         "//tensorflow/core/function/runtime_client:runtime_client_cc",
         "//tensorflow/core/grappler/clusters:cluster",
         "//tensorflow/core/grappler/clusters:single_machine",
@@ -1622,6 +1674,9 @@ py_library(
         },
     ) + [
         ":tensorflow_py_no_contrib",
+        "//tensorflow/lite/python:analyzer",
+        "//tensorflow/lite/python:lite",
+        "//tensorflow/lite/python/authoring",
         "//tensorflow/python/estimator:estimator_py",
     ],
 )
@@ -1636,6 +1691,11 @@ py_library(
     ],
     srcs_version = "PY3",
     visibility = ["//visibility:public"],
-    deps = ["//tensorflow/python:no_contrib"],
+    deps = [
+        "//tensorflow/lite/python:analyzer",
+        "//tensorflow/lite/python:lite",
+        "//tensorflow/lite/python/authoring",
+        "//tensorflow/python:no_contrib",
+    ],
 )
 # copybara:comment_end

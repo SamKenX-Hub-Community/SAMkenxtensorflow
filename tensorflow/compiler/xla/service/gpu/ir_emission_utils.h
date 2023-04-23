@@ -31,9 +31,12 @@ limitations under the License.
 namespace xla {
 namespace gpu {
 
-// If a dimensions is smaller than this, untiled transposition may be more
-// efficient.
+// If the most minor dimension in the transpose operand is smaller than this,
+// untiled transposition may be more efficient.
 inline constexpr int64_t kMinDimensionToTransposeTiled = 16;
+// But if the product of the dimensions to be swapped is larger than this, tiled
+// transposition may be more efficient.
+inline constexpr int64_t kMinTotalDimensionsToTransposeTiled = 64 * 128;
 
 // Matrix multiplication before the rewrite.
 //
@@ -50,10 +53,9 @@ inline constexpr int64_t MinThreadsXRowReduction() { return 1024; }
 // When doing batched row reduction, how big the batch dimension could be.
 inline constexpr int64_t BatchedReductionRaceFreeBound() { return 8; }
 
-// Returns true if `hlo` is a matched softmax fusion.
-bool IsSoftmaxCustomCall(const HloInstruction& hlo);
-
-extern const char* const kSoftmaxCallTarget;
+// GemmRewriterTriton sets backend_config of Triton GEMM custom fusions to
+// this string. TritonAutotuner replaces it with TritonGemmKey proto.
+inline constexpr absl::string_view kTritonGemmBackendConfig = "__triton_gemm";
 
 // Returns true if `hlo` will be implemented as a call to a cuSolver routine.
 //
@@ -123,24 +125,6 @@ llvm::Value* EmitFullWarpShuffleDown(llvm::Value* value, llvm::Value* offset,
 // Emits code that determines whether the current thread is thread 0 within
 // block 0 of the kernel.
 llvm::Value* IsBlock0Thread0(llvm::IRBuilder<>* b);
-
-inline std::string MlirToString(mlir::Operation* op) {
-  std::string s;
-  {
-    llvm::raw_string_ostream os(s);
-    op->print(os);
-  }
-  return s;
-}
-
-inline std::string MlirToString(const mlir::Location& loc) {
-  std::string s;
-  {
-    llvm::raw_string_ostream os(s);
-    loc.print(os);
-  }
-  return s;
-}
 
 int PartitionLmhloOperandsAndOutputs(mlir::Operation* op);
 llvm::SmallVector<mlir::Value> GetHloOperands(mlir::Operation* op);
@@ -223,9 +207,17 @@ const HloInstruction& FindNonTrivialHero(const HloInstruction& instr);
 // Whether there is a fusion root triggering transposition emitter.
 bool HasAnyTiledTransposeRoot(HloComputation* computation);
 
-std::optional<Vector3> FindTiledLogicalTranspose(const HloInstruction& instr);
+std::optional<Vector3> FindTiledTranspose(const HloInstruction& instr,
+                                          Vector3& permutation);
 
-std::optional<Vector3> FindAnyTiledTranspose(const HloInstruction& instr);
+std::optional<Vector3> FindTiledLogicalTranspose(const HloInstruction& instr,
+                                                 Vector3& permutation);
+
+std::optional<std::pair<Vector3, Vector3>> FindAnyTiledTranspose(
+    const HloInstruction& instr);
+
+// Log and verify an LLVM module.
+void LogAndVerify(const llvm::Module* m);
 
 }  // namespace gpu
 }  // namespace xla

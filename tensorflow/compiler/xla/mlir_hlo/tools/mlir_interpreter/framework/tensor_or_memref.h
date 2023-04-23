@@ -16,6 +16,10 @@ limitations under the License.
 #ifndef MLIR_HLO_TOOLS_MLIR_INTERPRETER_FRAMEWORK_TENSOR_OR_MEMREF_H_
 #define MLIR_HLO_TOOLS_MLIR_INTERPRETER_FRAMEWORK_TENSOR_OR_MEMREF_H_
 
+#include <math.h>
+
+#include <cmath>
+#include <complex>
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
@@ -25,11 +29,36 @@ limitations under the License.
 #include <utility>
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/StringRef.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
 
 namespace mlir {
 namespace interpreter {
+
+template <typename T>
+bool isEqual(T a, T b) {
+  return a == b;
+}
+
+// TODO(jreiffers): Replace ifndef with a command line flag.
+#ifndef MLIR_INTERPRETER_COMPARE_DOUBLES_EXACT
+// Compare double precision float with a small tolerance, because complex
+// computations in the interpreted don't olways produce the exact same result.
+template <>
+inline bool isEqual(double a, double b) {
+  if (isinf(a) || isinf(b)) {
+    return a == b;
+  }
+
+  return fabs(a - b) < 1e-14;
+}
+
+template <>
+inline bool isEqual(std::complex<double> a, std::complex<double> b) {
+  return isEqual(a.real(), b.real()) && isEqual(a.imag(), b.imag());
+}
+#endif
 
 // Represents a view into a physical buffer.
 struct BufferView {
@@ -164,8 +193,12 @@ class Buffer {
   }
 
   char* at(std::optional<int64_t> idx, int64_t elementSize) {
-    if (!idx) {
-      setHasOutOfBoundsAccess();
+    if (!idx || isDeallocated) {
+      setFailure("out of bounds access");
+      return &storage.data()[0];
+    }
+    if (isDeallocated) {
+      setFailure("use-after-free");
       return &storage.data()[0];
     }
     assert(!isDeallocated && "accessing deallocated buffer");
@@ -173,8 +206,12 @@ class Buffer {
   }
 
   const char* at(std::optional<int64_t> idx, int64_t elementSize) const {
-    if (!idx) {
-      setHasOutOfBoundsAccess();
+    if (!idx || isDeallocated) {
+      setFailure("out of bounds access");
+      return &storage.data()[0];
+    }
+    if (isDeallocated) {
+      setFailure("use-after-free");
       return &storage.data()[0];
     }
     assert(!isDeallocated && "accessing deallocated buffer");
@@ -186,18 +223,28 @@ class Buffer {
 
   int64_t getByteSize() const { return storage.size(); }
 
-  void deallocate() { isDeallocated = true; }
+  void deallocate() {
+    if (isAlloca) {
+      setFailure("deallocated stack buffer");
+    } else if (isDeallocated) {
+      setFailure("double-free");
+    } else {
+      isDeallocated = true;
+    }
+  }
 
   bool deallocated() const { return isDeallocated; }
 
-  void setHasOutOfBoundsAccess() const { outOfBounds = true; }
+  void setFailure(llvm::StringRef failure) const { this->failure = failure; }
+  llvm::StringRef getFailure() const { return failure; }
 
-  bool hasOutOfBoundsAccess() const { return outOfBounds; }
+  void setIsAlloca() { isAlloca = true; }
 
  private:
   llvm::SmallVector<char> storage;
   bool isDeallocated = false;
-  mutable bool outOfBounds = false;
+  bool isAlloca = false;
+  mutable llvm::StringRef failure;
 };
 
 template <typename T>
@@ -245,7 +292,7 @@ struct TensorOrMemref {
     if (offset) {
       subview.offset = *offset;
     } else {
-      buffer->setHasOutOfBoundsAccess();
+      buffer->setFailure("out of bounds access");
     }
     subview.isVector = true;
     subview.numVectorDims = std::nullopt;
@@ -266,7 +313,7 @@ struct TensorOrMemref {
           return false;
         }
       }
-      if (at(indices) != other.at(indices)) return false;
+      if (!isEqual(at(indices), other.at(indices))) return false;
     }
     return true;
   }

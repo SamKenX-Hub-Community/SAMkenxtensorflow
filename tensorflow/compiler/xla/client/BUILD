@@ -141,9 +141,8 @@ cc_library(
         "//tensorflow/compiler/xla/stream_executor",
         "//tensorflow/compiler/xla/stream_executor:device_memory_allocator",
         "//tensorflow/compiler/xla/stream_executor/host:host_platform",
-        "@com_google_absl//absl/memory",
         "@com_google_absl//absl/types:span",
-        "@llvm-project//llvm:Support",
+        "@llvm-project//llvm:TargetParser",
     ],
 )
 
@@ -160,8 +159,8 @@ cc_library(
         "//tensorflow/compiler/xla/service:compile_only_service",
         "//tensorflow/compiler/xla/service:compiler",
         "//tensorflow/compiler/xla/stream_executor",
-        "@com_google_absl//absl/memory",
         "@llvm-project//llvm:Support",
+        "@llvm-project//llvm:TargetParser",
     ],
 )
 
@@ -262,7 +261,6 @@ cc_library(
         "//tensorflow/compiler/xla:sharding_op_util",
         "//tensorflow/compiler/xla:status_macros",
         "//tensorflow/compiler/xla:statusor",
-        "//tensorflow/compiler/xla:types",
         "//tensorflow/compiler/xla:util",
         "//tensorflow/compiler/xla:window_util",
         "//tensorflow/compiler/xla:xla_data_proto_cc",
@@ -298,7 +296,7 @@ xla_cc_test(
         "//tensorflow/compiler/xla:util",
         "//tensorflow/compiler/xla:xla_data_proto_cc",
         "//tensorflow/compiler/xla/hlo/ir:hlo",
-        "//tensorflow/compiler/xla/service:hlo_matchers",
+        "//tensorflow/compiler/xla/hlo/utils:hlo_matchers",
         "//tensorflow/compiler/xla/tests:xla_internal_test_main",
         "//tensorflow/tsl/platform:test",
     ],
